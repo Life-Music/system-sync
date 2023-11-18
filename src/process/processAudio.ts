@@ -47,6 +47,9 @@ if(id) {
     const fileInfo = await prisma.audioResource.findFirstOrThrow({
       where: {
         id: id
+      },
+      include: {
+        media: true
       }
     })
     
@@ -74,6 +77,14 @@ if(id) {
             label: "HIGH",
             mediaId: fileInfo.mediaId
           },
+        }),
+        prisma.media.update({
+          where: {
+            id: fileInfo.mediaId
+          },
+          data: {
+            status: "DONE"
+          }
         })
       ])
     })
