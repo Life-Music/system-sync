@@ -16,6 +16,9 @@ export default class ProcessAudio extends Process {
       .videoCodec("libx264")
       .videoBitrate(320000)
       .size("320x240")
+      .on('progress', function(progress) {
+        console.log('Processing: ' + progress.percent + '% done');
+      })
       .on("end", () => {
           resolve({
             LOSSLESS: this.fileLocation + "/source.mp3",
@@ -57,6 +60,8 @@ if(id) {
     await processAudio.download()
 
     processAudio.process().then((res) => {
+      console.log("Uploading into cloud...");
+      
       return Promise.all([
         processAudio.upload(res.NORMAL),
         processAudio.upload(res.HIGH)
@@ -89,8 +94,11 @@ if(id) {
       ])
     })
     .then((res) => {
+      console.log("Cleaning up...");
+      
       processAudio.destroy()
       console.log(res);
+      prisma.$disconnect()
     })
   }()
 }

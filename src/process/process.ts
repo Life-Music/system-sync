@@ -35,6 +35,8 @@ export default class Process {
       mkdirSync(this.fileLocation);
     }
 
+    console.log("Downloading file: " + downloadLink);
+    
     const writer = createWriteStream(`${this.fileLocation}/source.mp3`);
     return this.downloader.get(downloadLink, {
       responseType: "stream",
