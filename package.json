@@ -1,0 +1,43 @@
+{
+  "name": "system-sync",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "devDependencies": {
+    "@types/fluent-ffmpeg": "^2.1.24",
+    "@types/node": "^20.9.1",
+    "commander": "^11.1.0",
+    "dotenv": "^16.3.1",
+    "eslint": "^8.53.0",
+    "nodemon": "^3.0.1",
+    "prisma": "^5.6.0",
+    "ts-node": "^10.9.1",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.2.2"
+  },
+  "scripts": {
+    "start": "nodemon",
+    "build": "tsc --build tsconfig.prod.json",
+    "test": "./node_modules/.bin/ts-node --files -r tsconfig-paths/register src/process/processAudio.ts"
+  },
+  "nodemonConfig": {
+    "watch": [
+      "src"
+    ],
+    "ext": "ts, html",
+    "ignore": [
+      "src/public"
+    ],
+    "exec": "./node_modules/.bin/ts-node --files -r tsconfig-paths/register ./src"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "^5.6.0",
+    "axios": "^1.6.2",
+    "axios-retry": "^3.9.1",
+    "fluent-ffmpeg": "^2.1.2",
+    "form-data": "^4.0.0"
+  }
+}

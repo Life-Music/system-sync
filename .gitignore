@@ -1,0 +1,6 @@
+node_modules
+prisma/generated
+data
+.env
+dist
+onedrive.json

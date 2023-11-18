@@ -1,0 +1,303 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/mysql"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum AudioQuality {
+  NORMAL
+  HIGH
+  LOSSLESS
+}
+
+enum StatusResource {
+  UPLOADING
+  PROCESSING
+  DONE
+  STREAMING
+  BLOCK
+}
+
+enum PaymentMethod {
+  VISA
+  BANKING
+}
+
+enum Status {
+  PUBLIC
+  PRIVATE
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  firstName String    @map("first_name")
+  lastName  String    @map("last_name")
+  email     String    @unique
+  username  String    @unique
+  password  String
+  avatar    String?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
+  lockedAt  DateTime? @map("locked_at")
+
+  media                     Media[]
+  mediaReactions            MediaReaction[]
+  histories                 History[]
+  subscribers               Subscriber[]                @relation(name: "subscribers", map: "subscribers")
+  channel                   Subscriber[]                @relation(name: "channel", map: "channel")
+  NotificationSubscriptions NotificationSubscriptions[]
+  Comment                   Comment[]
+  Playlist                  Playlist[]
+  UserPaymentMethod         UserPaymentMethod[]
+
+  @@map("users")
+}
+
+model UserPaymentMethod {
+  id            Int           @id @default(autoincrement())
+  userId        Int           @map("user_id")
+  paymentMethod PaymentMethod @map("payment_method")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @default(now()) @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@map("user_payment_method")
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  CategoryOnMedia CategoryOnMedia[]
+
+  @@map("categories")
+}
+
+model CategoryOnMedia {
+  id         Int      @id @default(autoincrement())
+  categoryId String   @map("category_id")
+  mediaId    String   @map("media_id")
+  category   Category @relation(fields: [categoryId], references: [id])
+  media      Media    @relation(fields: [mediaId], references: [id])
+
+  @@unique([categoryId, mediaId])
+  @@map("category_on_media")
+}
+
+model SessionUpload {
+  id               String    @id @default(uuid())
+  sessionUploadUrl String    @map("session_upload_url") @db.Text
+  mediaId          String    @map("media_id")
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @default(now())
+  expired_at       DateTime?
+
+  Media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("session_upload")
+}
+
+model Media {
+  id        String         @id @default(cuid())
+  userId    Int            @map("user_id")
+  title     String
+  views     Int            @default(0)
+  duration  Float          @default(0)
+  status    StatusResource @default(UPLOADING)
+  viewMode  Status         @default(PRIVATE) @map("view_mode")
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @default(now()) @updatedAt @map("updated_at")
+  lockedAt  DateTime?      @map("locked_at")
+
+  owner           User              @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  thumbnails      Thumbnail[]
+  detail          MediaDetail?
+  videoResources  VideoResource[]
+  audioResources  AudioResource[]
+  MediaReaction   MediaReaction[]
+  History         History[]
+  CategoryOnVideo CategoryOnMedia[]
+  Comment         Comment[]
+  MediaOnPlaylist MediaOnPlaylist[]
+  SessionUpload   SessionUpload[]
+
+  @@map("media")
+}
+
+model MediaReaction {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  mediaId   String   @map("media_id")
+  isLike    Boolean  @map("is_like")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user  User  @relation(fields: [userId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  media Media @relation(fields: [mediaId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@unique(fields: [userId, mediaId], name: "onlyReaction")
+  @@map("media_reactions")
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  mediaId   String   @map("media_id")
+  comment   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user  User  @relation(fields: [userId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  media Media @relation(fields: [mediaId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@map("comment")
+}
+
+model Playlist {
+  id        String   @id @default(cuid())
+  userId    Int      @map("user_id")
+  title     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user            User              @relation(fields: [userId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  MediaOnPlaylist MediaOnPlaylist[]
+
+  @@map("playlists")
+}
+
+model MediaOnPlaylist {
+  id         Int      @id @default(autoincrement())
+  playListId String   @map("playlist_id")
+  mediaId    String   @map("media_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  playlist Playlist @relation(fields: [playListId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  media    Media    @relation(fields: [mediaId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@unique([playListId, mediaId])
+  @@map("media_on_playlist")
+}
+
+model History {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  mediaId   String   @map("media_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user  User  @relation(fields: [userId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  meida Media @relation(fields: [mediaId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@unique(fields: [userId, mediaId], name: "onlyReaction")
+  @@map("histories")
+}
+
+model Subscriber {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  channelId Int      @map("channel_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user    User @relation(name: "subscribers", fields: [userId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  channel User @relation(name: "channel", fields: [channelId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@map("subscribers")
+}
+
+model NotificationSubscriptions {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  subscription String   @db.TinyText
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@map("notification_subscriptions")
+}
+
+model VideoResource {
+  id        Int      @id @default(autoincrement())
+  mediaId   String   @map("media_id")
+  label     String
+  url       String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  media Media @relation(fields: [mediaId], references: [id])
+
+  @@map("video_resources")
+}
+
+model AudioResource {
+  id        Int          @id @default(autoincrement())
+  mediaId   String       @map("media_id")
+  label     AudioQuality
+  fileId    String
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @default(now()) @updatedAt @map("updated_at")
+
+  media Media @relation(fields: [mediaId], references: [id])
+  @@unique(fields: [fileId, label], map: "only_one_resource")
+
+  @@map("audio_resources")
+}
+
+model MediaDetail {
+  id          String   @id
+  description String   @default("") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  media Media @relation(fields: [id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@map("media_details")
+}
+
+model Thumbnail {
+  id        String   @id @default(cuid())
+  url       String
+  isPrimary Boolean  @default(false)
+  mediaId   String   @map("media_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  media Media @relation(fields: [mediaId], references: [id])
+
+  @@map("thumbnails")
+}
+
+model PaymentTransaction {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  PaymentTransactionDetail PaymentTransactionDetail[]
+
+  @@map("payment_transactions")
+}
+
+model PaymentTransactionDetail {
+  id            Int           @id
+  totalPrice    Float         @map("total_price")
+  paymentMethod PaymentMethod @map("payment_method")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @default(now()) @updatedAt @map("updated_at")
+
+  paymentTransaction PaymentTransaction @relation(fields: [id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@map("payment_transaction_details")
+}
