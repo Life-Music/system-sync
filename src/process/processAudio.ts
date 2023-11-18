@@ -78,6 +78,7 @@ if(id) {
       ])
     })
     .then((res) => {
+      processAudio.destroy()
       console.log(res);
     })
   }()
