@@ -1,7 +1,7 @@
 import OneDrive from "@src/adapters/OneDrive";
 import "dotenv/config"
 import oneDriveRequest from "../requests/oneDrive"
-import { createWriteStream, existsSync, mkdirSync, readFileSync, rmdirSync } from "fs";
+import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync } from "fs";
 import { finished } from "stream";
 import { promisify } from "util";
 import ffmpeg from "fluent-ffmpeg"
@@ -62,7 +62,8 @@ export default class Process {
 
   async destroy() {
     if (existsSync(this.fileLocation)) {
-      rmdirSync(this.fileLocation);
+      
+      rmSync(this.fileLocation, { recursive: true, force: true });
     }
   }
 }
