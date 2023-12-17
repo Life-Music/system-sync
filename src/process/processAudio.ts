@@ -59,6 +59,22 @@ if(id) {
     const processAudio = new ProcessAudio(fileInfo.fileId)
     await processAudio.download()
 
+    const duration = await processAudio.getDuration()
+
+    try {
+      await prisma.media.update({
+        where: {
+          id: fileInfo.mediaId
+        },
+        data: {
+          duration,
+        }
+      })
+    }
+    catch(err) {
+      console.error(err)
+    }
+
     processAudio.process().then((res) => {
       console.log("Uploading into cloud...");
       

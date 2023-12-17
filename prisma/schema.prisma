@@ -35,8 +35,12 @@ enum Status {
   PRIVATE
 }
 
+enum AccountType {
+  YOUTUBE
+}
+
 model User {
-  id        Int       @id @default(autoincrement())
+  id        String    @id @default(cuid())
   firstName String    @map("first_name")
   lastName  String    @map("last_name")
   email     String    @unique
@@ -56,13 +60,15 @@ model User {
   Comment                   Comment[]
   Playlist                  Playlist[]
   UserPaymentMethod         UserPaymentMethod[]
+  Album                     Album[]
+  SocialAccount             SocialAccount[]
 
   @@map("users")
 }
 
 model UserPaymentMethod {
   id            Int           @id @default(autoincrement())
-  userId        Int           @map("user_id")
+  userId        String        @map("user_id")
   paymentMethod PaymentMethod @map("payment_method")
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @default(now()) @updatedAt @map("updated_at")
@@ -78,17 +84,20 @@ model Category {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
-  CategoryOnMedia CategoryOnMedia[]
+  categoryOnMedia MediaOnCategory[]
 
   @@map("categories")
 }
 
-model CategoryOnMedia {
+model MediaOnCategory {
   id         Int      @id @default(autoincrement())
   categoryId String   @map("category_id")
   mediaId    String   @map("media_id")
-  category   Category @relation(fields: [categoryId], references: [id])
-  media      Media    @relation(fields: [mediaId], references: [id])
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  category Category @relation(fields: [categoryId], references: [id])
+  media    Media    @relation(fields: [mediaId], references: [id])
 
   @@unique([categoryId, mediaId])
   @@map("category_on_media")
@@ -109,10 +118,11 @@ model SessionUpload {
 
 model Media {
   id          String         @id @default(cuid())
-  userId      Int            @map("user_id")
+  userId      String         @map("user_id")
   title       String
   views       Int            @default(0)
   duration    Float          @default(0)
+  plays       Int            @default(0) @db.UnsignedMediumInt
   status      StatusResource @default(UPLOADING)
   viewMode    Status         @default(PRIVATE) @map("view_mode")
   createdAt   DateTime       @default(now()) @map("created_at")
@@ -120,24 +130,26 @@ model Media {
   lockedAt    DateTime?      @map("locked_at")
   publishedAt DateTime?      @map("published_at")
 
-  owner           User              @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  thumbnails      Thumbnail[]
-  detail          MediaDetail?
-  videoResources  VideoResource[]
-  audioResources  AudioResource[]
-  MediaReaction   MediaReaction[]
-  History         History[]
-  CategoryOnVideo CategoryOnMedia[]
-  Comment         Comment[]
-  MediaOnPlaylist MediaOnPlaylist[]
-  SessionUpload   SessionUpload[]
+  owner                User                   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  thumbnails           Thumbnail[]
+  detail               MediaDetail?
+  videoResources       VideoResource[]
+  audioResources       AudioResource[]
+  mediaReaction        MediaReaction[]
+  history              History[]
+  mediaOnCategory      MediaOnCategory[]
+  comment              Comment[]
+  mediaOnPlaylist      MediaOnPlaylist[]
+  sessionUpload        SessionUpload[]
+  mediaOnAlbum         MediaOnAlbum[]
+  MediaOnSocialAccount MediaOnSocialAccount[]
 
   @@map("media")
 }
 
 model MediaReaction {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
   mediaId   String   @map("media_id")
   isLike    Boolean  @map("is_like")
   createdAt DateTime @default(now()) @map("created_at")
@@ -151,8 +163,8 @@ model MediaReaction {
 }
 
 model Comment {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
   mediaId   String   @map("media_id")
   comment   String   @db.Text
   createdAt DateTime @default(now()) @map("created_at")
@@ -166,7 +178,7 @@ model Comment {
 
 model Playlist {
   id        String   @id @default(cuid())
-  userId    Int      @map("user_id")
+  userId    String   @map("user_id")
   title     String
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
@@ -179,49 +191,51 @@ model Playlist {
 
 model MediaOnPlaylist {
   id         Int      @id @default(autoincrement())
-  playListId String   @map("playlist_id")
+  playlistId String   @map("playlist_id")
   mediaId    String   @map("media_id")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+  sortNo     Int      @default(0) @map("sort_no")
 
-  playlist Playlist @relation(fields: [playListId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  playlist Playlist @relation(fields: [playlistId], references: [id], onUpdate: Cascade, onDelete: Cascade)
   media    Media    @relation(fields: [mediaId], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
-  @@unique([playListId, mediaId])
+  @@unique([playlistId, mediaId])
   @@map("media_on_playlist")
 }
 
 model History {
   id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
+  userId    String   @map("user_id")
   mediaId   String   @map("media_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   user  User  @relation(fields: [userId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  meida Media @relation(fields: [mediaId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  media Media @relation(fields: [mediaId], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
-  @@unique(fields: [userId, mediaId], name: "onlyReaction")
+  @@unique(fields: [userId, mediaId], name: "onlyOne")
   @@map("histories")
 }
 
 model Subscriber {
   id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
-  channelId Int      @map("channel_id")
+  userId    String   @map("user_id")
+  channelId String   @map("channel_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   user    User @relation(name: "subscribers", fields: [userId], references: [id], onUpdate: Cascade, onDelete: Cascade)
   channel User @relation(name: "channel", fields: [channelId], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
+  @@unique([userId, channelId])
   @@map("subscribers")
 }
 
 model NotificationSubscriptions {
   id           Int      @id @default(autoincrement())
-  userId       Int      @map("user_id")
-  subscription String   @db.TinyText
+  userId       String   @map("user_id")
+  subscription String   @db.Text
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 
@@ -301,4 +315,68 @@ model PaymentTransactionDetail {
   paymentTransaction PaymentTransaction @relation(fields: [id], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
   @@map("payment_transaction_details")
+}
+
+model MediaOnAlbum {
+  id        Int      @id @default(autoincrement())
+  albumId   String   @map("album_id")
+  mediaId   String   @map("media_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  album Album @relation(fields: [albumId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([mediaId, albumId])
+  @@map("media_on_album")
+}
+
+model Album {
+  id          String   @id @default(cuid())
+  name        String
+  description String?  @map("description") @db.Text
+  userId      String   @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  owner        User           @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  mediaOnAlbum MediaOnAlbum[]
+
+  @@map("albums")
+}
+
+model MediaOnSocialAccount {
+  id              Int      @id @default(autoincrement())
+  socialAccountId Int      @map("social_account_id")
+  mediaSocialId   String   @map("media_social_id")
+  mediaId         String   @map("media_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  media         Media         @relation(fields: [mediaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([socialAccountId, mediaSocialId, mediaId])
+  @@map("media_on_social_account")
+}
+
+model SocialAccount {
+  id           Int         @id @default(autoincrement())
+  userId       String      @map("user_id")
+  type         AccountType @default(YOUTUBE)
+  fullName     String      @map("full_name")
+  avatarUrl    String?     @map("avatar_url")
+  accountUrl   String?     @map("account_url")
+  accessToken  String?     @map("access_token") @db.Text
+  refreshToken String?     @map("refresh_token") @db.Text
+  expiredAt    DateTime    @map("expired_at")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @default(now()) @updatedAt @map("updated_at")
+  disabledAt   DateTime?   @updatedAt @map("disabled_at")
+
+  owner                User                   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  MediaOnSocialAccount MediaOnSocialAccount[]
+
+  @@unique([userId, accountUrl, type])
+  @@map("user_accounts")
 }

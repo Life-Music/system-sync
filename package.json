@@ -39,6 +39,8 @@
     "axios": "^1.6.2",
     "axios-retry": "^3.9.1",
     "fluent-ffmpeg": "^2.1.2",
-    "form-data": "^4.0.0"
+    "form-data": "^4.0.0",
+    "progress-estimator": "^0.3.1",
+    "youtube-dl-exec": "^2.5.2"
   }
 }

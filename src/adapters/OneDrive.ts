@@ -110,14 +110,14 @@ class OneDrive implements config {
   }
 
   async getFileInfo(fileUID: string) {
-		const res = await this.requestAdapter.get<{
+    const res = await this.requestAdapter.get<{
       "@microsoft.graph.downloadUrl": string
       parentReference: {
         id: string
       }
     }>(`/drive/items/${fileUID}/`)
-		return res.data
-	}
+    return res.data
+  }
 
   public async createUploadSession(folderId: string, fileName: string) {
     return this.requestAdapter.post(`/drive/items/${folderId}:/${fileName}:/createUploadSession`, {
@@ -163,37 +163,98 @@ class OneDrive implements config {
     return res.data.id;
   }
 
-  async uploadToURI(uri: string, buffer: Buffer, headers = {}) {
-		return this.requestAdapter.put(uri, buffer, {
-			headers: {
-				"Content-Length": buffer.byteLength,
-				"Content-Range": `bytes 0-${buffer.byteLength - 1}/${buffer.byteLength}`,
-				...headers
-			}
-		})
-			.then((res) => {
-				return res.data
-			})
-			.catch((e) => {
-				console.log(e);
+  public createResumableUpload (uri: string) {
+    const uploader = axios.create({})
+  
+    return function (data: ArrayBuffer, byteStart: number, totalByte: number) {
+      return uploader.put(uri, data, {
+        headers: {
+          "Content-Range": `bytes ${byteStart}-${byteStart + data.byteLength - 1}/${totalByte}`,
+        }
+      })
+        .then((res) => {
+          return res.data
+        })
+        .catch((e) => {
+          console.log(e);
+        })
+    }
+  }
+  
 
-			})
-	}
+  async uploadToURI(uri: string, buffer: Buffer, headers = {}) {
+    const resumableUpload = this.createResumableUpload(uri)
+    return new Promise((resolve: (res: any) => void, reject) => {
+      this.readByChunk(buffer, {
+        async onRead(data, totalByte, byteStart) {
+          const percent = Math.floor((byteStart / totalByte) * 100)
+          const res: {
+            id?: string
+          } = await resumableUpload(data, byteStart, totalByte)
+          if (res.id) {
+            resolve(res)
+          }
+          console.log(percent);
+        },
+      })
+    })
+  }
 
   private async _upload(folderId: string, fileName: string, payload: any): Promise<string> {
-		const buffer = Buffer.from(payload)
-		if (buffer.byteLength < 4 * 1024 * 1024) {
-			const res = await this.requestAdapter.put(`/drive/items/${folderId}:/${fileName}:/content`, buffer)
-			return res.data.id
-		}
-		const sessionUpload = await this.createUploadSession(folderId, fileName)
-		const res = await this.uploadToURI(sessionUpload.uploadUrl, buffer)
-		return res.id
-	}
+    const buffer = Buffer.from(payload)
+    if (buffer.byteLength < 4 * 1024 * 1024) {
+      const res = await this.requestAdapter.put(`/drive/items/${folderId}:/${fileName}:/content`, buffer)
+      return res.data.id
+    }
+    const sessionUpload = await this.createUploadSession(folderId, fileName)
+    const res = await this.uploadToURI(sessionUpload.uploadUrl, buffer)
+    return res.id
+  }
 
-	async upload(folderId: string, fileName: string, payload: any) {
-		return await this._upload(folderId, fileName, payload)
-	}
+  public async readByChunk(file: Buffer, {
+    byteStart = 0,
+    chunkSize = 1024 * 1024 * 5,
+    onSuccess,
+    onRead
+  }: {
+    byteStart?: number,
+    chunkSize?: number
+    onSuccess?: () => void,
+    onFailed?: () => void,
+    onRead?: (data: ArrayBuffer, totalByte: number, byteStart: number) => Promise<void>
+  }) {
+    const fileSize = file.length
+    let offset = byteStart
+
+    const onLoadHandler = async (buffer: ArrayBuffer) => {
+      await onRead?.(buffer, fileSize, offset)
+    }
+
+    const read = () => {
+      return new Promise((solver) => {
+        const blob = Uint8Array.prototype.slice.call(file, offset, chunkSize + offset);
+        onLoadHandler(blob)
+          .then(() => {
+            solver(true)
+            offset += chunkSize
+          })
+      })
+    }
+
+    /*eslint no-constant-condition: ["error", { "checkLoops": false }]*/
+    while (true) {
+      await read()
+      if (offset >= fileSize) {
+        onSuccess?.()
+        break;
+      }
+    }
+  }
+
+
+  async upload(folderId: string, fileName: string, payload: any) {
+    return await this._upload(folderId, fileName, payload)
+  }
 }
 
 export default OneDrive;

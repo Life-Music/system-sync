@@ -36,22 +36,22 @@ export default class Process {
     }
 
     console.log("Downloading file: " + downloadLink);
-    
+
     const writer = createWriteStream(`${this.fileLocation}/source.mp3`);
     return this.downloader.get(downloadLink, {
       responseType: "stream",
     })
-    .then((res) => {
-      res.data.pipe(writer);
-      return finishedFs(writer); 
-    });
+      .then((res) => {
+        res.data.pipe(writer);
+        return finishedFs(writer);
+      });
   }
 
   async upload(fileLocation: string) {
     const file = readFileSync(fileLocation)
 
     const fileInfo = await this.oneDrive.getFileInfo(this.fileId)
-    
+
     const fileName = fileLocation.split("/").pop() ?? new Date().getTime().toString()
     return this.oneDrive.upload(fileInfo.parentReference.id, fileName, file);
   }
@@ -60,9 +60,19 @@ export default class Process {
 
   }
 
+  async getDuration(): Promise<number> {
+    return 0
+    return new Promise((solver, reject) => {
+      ffmpeg.ffprobe(`${this.fileLocation}/source.mp3`, (err, metadata) => {
+        if (err) reject(err);
+        solver(metadata.format.duration ?? 0);
+      })
+    })
+  }
+
   async destroy() {
     if (existsSync(this.fileLocation)) {
-      
+
       rmSync(this.fileLocation, { recursive: true, force: true });
     }
   }
