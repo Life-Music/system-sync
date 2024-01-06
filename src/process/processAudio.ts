@@ -7,7 +7,7 @@ export default class ProcessAudio extends Process {
   async process(): Promise<Record<AudioQuality, string>> {
     const NORMAL = await this.processWithBitRate(this.fileLocation + "/source.mp3", this.fileLocation + "/128k.mp3", 128000)
     const HIGH = await this.processWithBitRate(this.fileLocation + "/source.mp3", this.fileLocation + "/320.mp3", 320000)
-    const LOSSLESS = await this.processWithBitRate(this.fileLocation + "/source.mp4", this.fileLocation + "/source_lossless.mp3",)
+    const LOSSLESS = await this.processWithBitRate(this.fileLocation + "/source.mp3", this.fileLocation + "/source_lossless.mp3",)
 
     return {
       HIGH,
