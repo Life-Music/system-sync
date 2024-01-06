@@ -290,7 +290,7 @@ model Thumbnail {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
-  media Media @relation(fields: [mediaId], references: [id])
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@map("thumbnails")
 }
@@ -372,7 +372,7 @@ model SocialAccount {
   expiredAt    DateTime    @map("expired_at")
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @default(now()) @updatedAt @map("updated_at")
-  disabledAt   DateTime?   @updatedAt @map("disabled_at")
+  disabledAt   DateTime?   @map("disabled_at")
 
   owner                User                   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   MediaOnSocialAccount MediaOnSocialAccount[]

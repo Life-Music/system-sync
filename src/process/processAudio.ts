@@ -1,36 +1,19 @@
 import Process from "./process";
 import { program } from "commander"
-import Prisma, { PrismaClient } from "~/prisma/generated/mysql"
+import Prisma, { AudioQuality, PrismaClient } from "~/prisma/generated/mysql"
 
 export default class ProcessAudio extends Process {
   
-  process() {
-    return new Promise(async (resolve: (arg: Record<Prisma.AudioQuality, string>) => void, reject) => {
-      this.ffmpeg
-      .input(this.fileLocation + "/source.mp3")
-      .output(this.fileLocation + "/128k.mp3")
-      .output(this.fileLocation + "/320k.mp3")
-      .outputFormat("mp3")
-      .audioCodec("libmp3lame")
-      .audioBitrate(128000)
-      .videoCodec("libx264")
-      .videoBitrate(320000)
-      .size("320x240")
-      .on('progress', function(progress) {
-        console.log('Processing: ' + progress.percent + '% done');
-      })
-      .on("end", () => {
-          resolve({
-            LOSSLESS: this.fileLocation + "/source.mp3",
-            HIGH: this.fileLocation + "/320k.mp3",
-            NORMAL: this.fileLocation + "/128k.mp3",
-          })
-        })
-      .on("error", (err) => {
-        reject(err)
-        })
-      .run()
-    })
+  async process(): Promise<Record<AudioQuality, string>> {
+    const NORMAL = await this.processWithBitRate(this.fileLocation + "/source.mp3", this.fileLocation + "/128k.mp3", 128000)
+    const HIGH = await this.processWithBitRate(this.fileLocation + "/source.mp3", this.fileLocation + "/320.mp3", 320000)
+    const LOSSLESS = await this.processWithBitRate(this.fileLocation + "/source.mp4", this.fileLocation + "/source_lossless.mp3",)
+
+    return {
+      HIGH,
+      NORMAL,
+      LOSSLESS,
+    }
   }
 }
 

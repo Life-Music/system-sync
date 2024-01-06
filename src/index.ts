@@ -1,7 +1,8 @@
 import { PrismaClient } from "~/prisma/generated/mysql";
 import GoogleAuth from "./adapters/GoogleAuth";
 import ProcessVideo from "./process/proccessVideo";
-import { readFileSync } from "fs";
+import elasticSearch from './adapters/ElasticSearch';
+
 
 const prisma = new PrismaClient();
   void async function() {
@@ -73,10 +74,24 @@ const prisma = new PrismaClient();
             }
           })
 
+          await elasticSearch.index({
+            index: 'media',
+            id: media.id.toString(),
+            document: {
+              id: media.id.toString(),
+              name: media.title,
+              status: media.status,
+              published_at: media.publishedAt,
+              locked_at: media.lockedAt,
+              view_mode: media.viewMode,
+            },
+          });
+
           const processAudio = new ProcessVideo(video.videoId)
-          // await processAudio.download()
+          await processAudio.download()
 
           const duration = await processAudio.getDuration()
+
           try {
             await prisma.media.update({
               where: {
@@ -93,30 +108,16 @@ const prisma = new PrismaClient();
 
           const folderMediaId = await processAudio.oneDrive.createFolder(media.id);
           const folderRawId = await processAudio.oneDrive.createFolder('RAW', folderMediaId);
-          const file = readFileSync(`${processAudio.fileLocation}/source.mp4`)
-          processAudio.oneDrive.upload(folderRawId, "source.mp4", file)
-          .then((res) => {
-            return [
-              res
-            ]
-          })
-
-          // processAudio.upload(`${processAudio.fileLocation}/source.mp4`)
-          // .then((res) => {
-          //   return [
-          //     res
-          //   ]
-          // })
       
-          // processAudio.process().then((res) => {
-          //   console.log("Uploading into cloud...");
+          await processAudio.process().then((res) => {
+            console.log("Uploading into cloud...");
             
-          //   return Promise.all([
-          //     processAudio.upload(res.LOSSLESS),
-          //     processAudio.upload(res.NORMAL),
-          //     processAudio.upload(res.HIGH),
-          //   ])
-          // })
+            return Promise.all([
+              processAudio.uploadRaw(folderRawId, res.LOSSLESS),
+              processAudio.uploadRaw(folderRawId, res.HIGH),
+              processAudio.uploadRaw(folderRawId, res.NORMAL),
+            ])
+          })
           .then((res) => {
             return prisma.$transaction([
               prisma.audioResource.create({
@@ -126,20 +127,20 @@ const prisma = new PrismaClient();
                   mediaId: media.id
                 },
               }),
-              // prisma.audioResource.create({
-              //   data: {
-              //     fileId: res[0],
-              //     label: "NORMAL",
-              //     mediaId: media.id
-              //   },
-              // }),
-              // prisma.audioResource.create({
-              //   data: {
-              //     fileId: res[1],
-              //     label: "HIGH",
-              //     mediaId: media.id
-              //   },
-              // }),
+              prisma.audioResource.create({
+                data: {
+                  fileId: res[0],
+                  label: "NORMAL",
+                  mediaId: media.id
+                },
+              }),
+              prisma.audioResource.create({
+                data: {
+                  fileId: res[1],
+                  label: "HIGH",
+                  mediaId: media.id
+                },
+              }),
               prisma.media.update({
                 where: {
                   id: media.id

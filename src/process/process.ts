@@ -25,6 +25,9 @@ export default class Process {
   constructor(fileId: string) {
     this.fileId = fileId;
     this.fileLocation = `./data/${this.fileId}`
+    mkdirSync(this.fileLocation, {
+      recursive: true
+    })
   }
 
   async download() {
@@ -56,12 +59,37 @@ export default class Process {
     return this.oneDrive.upload(fileInfo.parentReference.id, fileName, file);
   }
 
+  async processWithBitRate(fileLocation: string, output: string, audioBitrate?: number): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const handler = this.ffmpeg
+      .input(fileLocation)
+      .addOption("-vn")
+      .output(output)
+      .outputFormat("mp3")
+      .audioCodec("libmp3lame")
+
+      if(audioBitrate) handler.audioBitrate(audioBitrate)
+
+      handler
+      .on('progress', function(progress) {
+        console.log('Processing: ' + progress.percent + '% done');
+      })
+      .on("end", () => {
+          resolve(output)
+        })
+      .on("error", (err) => {
+        reject(err)
+        })
+      .run()   
+    })
+    
+  }
+
   async process(): Promise<any> {
 
   }
 
   async getDuration(): Promise<number> {
-    return 0
     return new Promise((solver, reject) => {
       ffmpeg.ffprobe(`${this.fileLocation}/source.mp3`, (err, metadata) => {
         if (err) reject(err);
